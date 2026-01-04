@@ -12,33 +12,9 @@ body{
   color:#fff;
   font-family:Poppins,Arial;
 }
-
-/* TOP BAR */
-.top{
-  position:fixed;
-  top:15px;
-  right:15px;
-  display:flex;
-  gap:15px;
-  z-index:10;
-}
-.notif{position:relative;font-size:22px}
-.badge{
-  position:absolute;
-  top:-6px;
-  right:-10px;
-  background:red;
-  color:#fff;
-  font-size:12px;
-  padding:2px 6px;
-  border-radius:50%;
-  display:none;
-}
-
-/* BOX */
 .box{
   max-width:420px;
-  margin:90px auto 20px;
+  margin:90px auto;
   background:rgba(255,255,255,.12);
   border-radius:16px;
   padding:20px;
@@ -50,68 +26,45 @@ input,button{
   border:none;
   border-radius:8px;
 }
-button{
-  font-weight:600;
-  cursor:pointer;
-}
-
-/* SECTION */
+button{font-weight:600;cursor:pointer}
 .section{
   margin-top:20px;
   padding-top:10px;
   border-top:1px solid rgba(255,255,255,.2);
 }
-
-/* USER CARD */
 .user{
   background:rgba(0,0,0,.4);
   padding:10px;
   border-radius:10px;
   margin-top:10px;
-  font-size:14px;
 }
-.user b{font-size:15px}
 .actions{
   display:flex;
   gap:8px;
   margin-top:8px;
 }
-.actions button{
-  flex:1;
-  padding:8px;
-  font-size:13px;
-}
-.approve{background:#2ecc71}
-.decline{background:#e74c3c}
-.pass{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  margin-top:6px;
-}
-.eye{cursor:pointer}
-
 .hidden{display:none}
 </style>
 </head>
 
 <body>
 
-<!-- TOP -->
-<div class="top">
-  <div class="notif">🔔 <span id="badge" class="badge">0</span></div>
-</div>
-
 <!-- LOGIN -->
 <div class="box" id="loginBox">
   <h2>Admin Login</h2>
-  <input id="au" placeholder="Admin Username">
-  <input id="ap" type="password" placeholder="Password">
+  <input id="adminPass" type="password" placeholder="Enter admin password">
   <button onclick="adminLogin()">Login</button>
 </div>
 
 <!-- PANEL -->
 <div class="box hidden" id="panel">
+
+  <!-- CHANGE PASSWORD -->
+  <div class="section">
+    <h3>🔐 Change Admin Password</h3>
+    <input id="newPass" type="password" placeholder="New password">
+    <button onclick="changePassword()">Update Password</button>
+  </div>
 
   <!-- UPLOAD -->
   <div class="section">
@@ -129,18 +82,11 @@ button{
 </div>
 
 <script type="module">
-/* ========= FIREBASE ========= */
+/* ================= FIREBASE ================= */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword }
-from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 import {
-  getFirestore,
-  collection,
-  onSnapshot,
-  doc,
-  getDoc,
-  addDoc,
-  updateDoc
+  getFirestore, collection, onSnapshot,
+  updateDoc, doc, addDoc
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -148,79 +94,60 @@ const firebaseConfig = {
   authDomain: "photos-90be5.firebaseapp.com",
   projectId: "photos-90be5"
 };
-
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
-const toEmail = u => `${u}@app.local`;
 
-/* ========= IMGBB ========= */
-const IMGBB_KEY = "b09c0e1b8cabedcffe103559abfb7033";
+/* ================= SIMPLE ADMIN PASSWORD ================= */
+/* First time default password */
+let ADMIN_PASSWORD = localStorage.getItem("ADMIN_PASS") || "admin123";
 
-/* ========= ADMIN LOGIN ========= */
-window.adminLogin = async ()=>{
-  const cred = await signInWithEmailAndPassword(
-    auth,
-    toEmail(au.value),
-    ap.value
-  );
-
-  const snap = await getDoc(doc(db,"users",cred.user.uid));
-  if(snap.data().role !== "admin"){
-    alert("Not admin");
+/* LOGIN */
+window.adminLogin = ()=>{
+  if(adminPass.value !== ADMIN_PASSWORD){
+    alert("Wrong admin password");
     return;
   }
-
   loginBox.classList.add("hidden");
   panel.classList.remove("hidden");
-
   loadUsers();
-  listenBadge();
 };
 
-/* ========= USERS LIST ========= */
+/* CHANGE PASSWORD */
+window.changePassword = ()=>{
+  if(newPass.value.length < 4){
+    alert("Password too short");
+    return;
+  }
+  ADMIN_PASSWORD = newPass.value;
+  localStorage.setItem("ADMIN_PASS", ADMIN_PASSWORD);
+  newPass.value = "";
+  alert("✅ Admin password changed");
+};
+
+/* USERS */
 function loadUsers(){
   onSnapshot(collection(db,"users"), snap=>{
     users.innerHTML="";
     snap.forEach(d=>{
-      const u = d.data();
-      users.innerHTML += `
+      const u=d.data();
+      users.innerHTML+=`
         <div class="user">
           <b>${u.username}</b><br>
-          Status: <b>${u.status}</b>
-
+          Status: ${u.status}
           <div class="actions">
-            <button class="approve"
-              onclick="approveUser('${d.id}')">Approve</button>
-            <button class="decline"
-              onclick="declineUser('${d.id}')">Decline</button>
-          </div>
-
-          <div class="pass">
-            <span class="pw" data-pw="${u.password}">••••••</span>
-            <span class="eye" onclick="togglePass(this)">👁️</span>
+            <button onclick="approve('${d.id}')">Approve</button>
+            <button onclick="decline('${d.id}')">Decline</button>
           </div>
         </div>`;
     });
   });
 }
+window.approve = uid => updateDoc(doc(db,"users",uid),{status:"approved"});
+window.decline = uid => updateDoc(doc(db,"users",uid),{status:"declined"});
 
-window.togglePass = el=>{
-  const p = el.previousElementSibling;
-  p.innerText = p.innerText==="••••••" ? p.dataset.pw : "••••••";
-};
+/* ================= IMGBB UPLOAD ================= */
+const IMGBB_KEY = "b09c0e1b8cabedcffe103559abfb7033";
 
-window.approveUser = async uid=>{
-  await updateDoc(doc(db,"users",uid),{ status:"approved" });
-  alert("✅ User approved");
-};
-
-window.declineUser = async uid=>{
-  await updateDoc(doc(db,"users",uid),{ status:"declined" });
-  alert("❌ User declined");
-};
-
-/* ========= PHOTO UPLOAD (IMGBB) ========= */
 window.uploadPhoto = async ()=>{
   const file = photo.files[0];
   if(!file){ alert("Select photo"); return; }
@@ -236,25 +163,11 @@ window.uploadPhoto = async ()=>{
   if(!data.success){ alert("Upload failed"); return; }
 
   await addDoc(collection(db,"photos"),{
-    url: data.data.url,
-    uploadedBy:"admin",
+    url:data.data.url,
     time:Date.now()
   });
-
-  alert("✅ Photo uploaded & live on website");
+  alert("Photo uploaded");
 };
-
-/* ========= NOTIFICATION BADGE ========= */
-function listenBadge(){
-  onSnapshot(collection(db,"users"), snap=>{
-    let c=0;
-    snap.forEach(d=>{
-      if(d.data().status==="pending") c++;
-    });
-    badge.style.display = c ? "inline" : "none";
-    badge.innerText = c;
-  });
-}
 </script>
 
 </body>
