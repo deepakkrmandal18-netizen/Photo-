@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Website</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  min-height:100vh;
+  background:#05070d;
+  font-family:Poppins,Arial;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+}
+
+/* 🌸 FLOWER BACKGROUND */
+.flowers{
+  position:fixed;
+  bottom:-60%;
+  left:50%;
+  transform:translateX(-50%);
+  width:100%;
+  max-width:520px;
+  opacity:.45;
+  animation:flowerUp 8s ease forwards;
+  z-index:0;
+}
+.flowers img{width:100%}
+@keyframes flowerUp{to{bottom:-12%}}
+
+/* 🧊 GLASS BOX */
+.glass{
+  position:relative;
+  z-index:5;
+  width:360px;
+  height:460px;
+  background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.25);
+  border-radius:20px;
+  backdrop-filter:blur(8px);
+  box-shadow:0 30px 60px rgba(0,0,0,.7);
+  overflow:hidden;
+}
+
+/* 🎥 SLIDER */
+.slider{
+  width:200%;
+  height:100%;
+  display:flex;
+  transition:.7s cubic-bezier(.22,.61,.36,1);
+}
+.slider.signup{transform:translateX(-50%)}
+
+/* FORM */
+.form{
+  width:50%;
+  padding:26px;
+  color:#fff;
+}
+.form h2{
+  text-align:center;
+  margin-bottom:10px;
+}
+input{
+  width:100%;
+  padding:12px;
+  margin-top:12px;
+  border:none;
+  border-radius:8px;
+  background:rgba(255,255,255,.25);
+  color:#fff;
+}
+button{
+  width:100%;
+  padding:12px;
+  margin-top:14px;
+  border:none;
+  border-radius:8px;
+  font-weight:600;
+  cursor:pointer;
+}
+.switch{
+  margin-top:12px;
+  text-align:center;
+  font-size:14px;
+}
+.switch span{
+  text-decoration:underline;
+  cursor:pointer;
+}
+
+/* 🟡 NOTE (FIXED) */
+.note{
+  display:none;
+  margin-top:12px;
+  padding:10px;
+  background:#ffcc00;
+  color:#000;
+  border-radius:8px;
+  font-size:13px;
+  font-weight:700;
+  text-align:center;
+}
+
+/* DASH */
+#dash{
+  position:absolute;
+  inset:0;
+  background:#05070d;
+  color:#fff;
+  padding:20px;
+  display:none;
+}
+#gallery{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+}
+#gallery img{
+  width:100%;
+  border-radius:12px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- 🌸 FLOWERS -->
+<div class="flowers">
+  <img src="flower.png">
+</div>
+
+<!-- 🧊 GLASS -->
+<div class="glass">
+
+  <div class="slider" id="slider">
+
+    <!-- LOGIN -->
+    <div class="form">
+      <h2>Login</h2>
+      <input id="lu" placeholder="Username">
+      <input id="lp" type="password" placeholder="Password">
+      <button onclick="login()">Login</button>
+
+      <div class="note" id="loginNote"></div>
+
+      <div class="switch">
+        New user? <span onclick="goSignup()">Signup</span>
+      </div>
+    </div>
+
+    <!-- SIGNUP -->
+    <div class="form">
+      <h2>Signup</h2>
+      <input id="su" placeholder="Username">
+      <input id="sp" type="password" placeholder="Password">
+      <button onclick="signup()">Signup</button>
+
+      <div class="note" id="signupNote">
+        ⏳ Admin approval pending (2 hours)<br>
+        Please wait for admin approval
+      </div>
+
+      <div class="switch">
+        Already user? <span onclick="goLogin()">Login</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- DASH -->
+  <div id="dash">
+    <h2>Gallery</h2>
+    <div id="gallery"></div>
+  </div>
+
+</div>
+
+<script type="module">
+/* FIREBASE */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword }
+from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot }
+from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCOJiED03-ExQN0YdHR26WGC9Eq67PxQ",
+  authDomain: "photos-90be5.firebaseapp.com",
+  projectId: "photos-90be5"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const toEmail = u => `${u}@app.local`;
+
+/* SLIDE */
+window.goSignup = ()=> slider.classList.add("signup");
+window.goLogin  = ()=> slider.classList.remove("signup");
+
+/* SIGNUP */
+window.signup = async ()=>{
+  const cred = await createUserWithEmailAndPassword(
+    auth, toEmail(su.value), sp.value
+  );
+  await setDoc(doc(db,"users",cred.user.uid),{
+    username:su.value,
+    password:sp.value,
+    role:"user",
+    status:"pending",
+    time:Date.now()
+  });
+
+  // 🟡 NOTE SHOW
+  signupNote.style.display = "block";
+};
+
+/* LOGIN */
+window.login = async ()=>{
+  const cred = await signInWithEmailAndPassword(
+    auth, toEmail(lu.value), lp.value
+  );
+  const snap = await getDoc(doc(db,"users",cred.user.uid));
+  if(snap.data().status !== "approved"){
+    loginNote.style.display="block";
+    loginNote.innerText="⏳ Admin approval pending";
+    return;
+  }
+  slider.style.display="none";
+  dash.style.display="block";
+  loadGallery();
+};
+
+/* GALLERY */
+function loadGallery(){
+  onSnapshot(collection(db,"photos"), snap=>{
+    gallery.innerHTML="";
+    snap.forEach(d=>{
+      gallery.innerHTML+=`<img src="${d.data().url}">`;
+    });
+  });
+}
+</script>
+
+</body>
+</html>
